@@ -229,19 +229,27 @@ export default function CouncilPage() {
 
   return (
     <main>
-      <div className="wrap" style={{ padding: "40px 24px 80px" }}>
-        {/* header */}
-        <div style={{ marginBottom: 6 }} className="label">
-          <a href="https://precision.regischapman.com" style={{ color: "var(--faint)" }}>
-            ‹ Precision Toolkit for AI
-          </a>{" "}
-          · demonstrator
+      <nav className="nav">
+        <div className="wrap nav-in">
+          <a className="brand" href="https://precision.regischapman.com">
+            <b>Precision</b> Council <span style={{ color: "var(--brass)" }}>for AI</span>
+          </a>
+          <div className="tabs">
+            <a className="tab" href="https://precision.regischapman.com">Toolkit</a>
+            <a className="tab" href="https://framelanguage.regischapman.com">Analyzer</a>
+          </div>
         </div>
-        <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 8px", display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+      </nav>
+      <div className="wrap" style={{ padding: "44px 24px 80px" }}>
+        {/* header */}
+        <div style={{ marginBottom: 8 }} className="label">
+          A demonstrator under the Precision Toolkit for AI
+        </div>
+        <h1 style={{ fontSize: 34, fontWeight: 300, margin: "0 0 10px", display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
           Precision Council for AI
           <span
             className="label"
-            style={{ fontSize: 11, color: "var(--cyan)", letterSpacing: "0.1em" }}
+            style={{ fontSize: 11, color: "var(--brass)", letterSpacing: "0.14em" }}
           >
             PC4AI
           </span>
@@ -442,10 +450,10 @@ export default function CouncilPage() {
                           l.score == null
                             ? "var(--faint)"
                             : l.score >= 7
-                            ? "var(--green)"
+                            ? "var(--rich-c)"
                             : l.score >= 4
-                            ? "var(--cyan)"
-                            : "var(--amber)",
+                            ? "var(--cool)"
+                            : "var(--warm)",
                       }}
                     >
                       {l.score == null ? "·" : l.score + "/10"}
@@ -513,10 +521,10 @@ function Floor({
   const pct = (s: number) => ((s - 1) / 9) * 100;
   const bandColor =
     independence.grade === "Strong"
-      ? "var(--green)"
+      ? "var(--rich-c)"
       : independence.grade === "Moderate"
-      ? "var(--cyan)"
-      : "var(--amber)";
+      ? "var(--cool)"
+      : "var(--warm)";
 
   return (
     <div className="floor">
