@@ -137,12 +137,12 @@ textarea:focus, input:focus, select:focus { border-color: var(--cool-line); }
 /* independence gauge, grades on the palette */
 .gauge-track { height: 8px; background: var(--panel); border: 1px solid var(--hair); border-radius: 4px; overflow: hidden; }
 .gauge-fill { height: 100%; transition: width 0.4s ease, background 0.4s ease; }
-.grade-weak { color: var(--warm); }
-.grade-moderate { color: var(--cool); }
-.grade-strong { color: var(--rich-c); }
-.fill-weak { background: var(--warm); }
-.fill-moderate { background: var(--cool); }
-.fill-strong { background: var(--rich-c); }
+.grade-single { color: var(--cool); }
+.grade-cross { color: var(--brass); }
+.grade-broad { color: var(--rich-c); }
+.fill-single { background: var(--cool); }
+.fill-cross { background: var(--brass); }
+.fill-broad { background: var(--rich-c); }
 
 /* lanes */
 .lanes { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }

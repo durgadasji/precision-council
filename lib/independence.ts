@@ -1,48 +1,67 @@
 import type { ProviderId } from "./providers";
 
-export type Grade = "Weak" | "Moderate" | "Strong";
+export type GradeKey = "single" | "cross" | "broad";
 
 export interface IndependenceReading {
-  grade: Grade;
+  gradeKey: GradeKey;
+  gradeLabel: string;
   distinctProviders: number;
+  distinctModels: number;
   providers: ProviderId[];
   // 0..1, drives the gauge fill
   fraction: number;
   note: string;
 }
 
-// Independence scales with how many distinct model lineages actually scored.
-// One provider is one lineage in several costumes (Weak), two is Moderate,
-// three or more is Strong. Evidence is always shared in this browser version,
-// which is a shared blind spot, so that limitation is stated at every grade.
-export function readIndependence(providers: ProviderId[]): IndependenceReading {
-  const distinct = Array.from(new Set(providers));
-  const n = distinct.length;
+const SHARED_EVIDENCE =
+  "All evaluators read the same pasted evidence, a shared blind spot: if that evidence is wrong or incomplete, every evaluator inherits the gap and their agreement cannot catch it.";
 
-  let grade: Grade;
-  if (n >= 3) grade = "Strong";
-  else if (n === 2) grade = "Moderate";
-  else grade = "Weak";
+// Independence is a dial, not a grade you pass or fail. It describes how much
+// construction diversity the roster actually had and points at how to widen it.
+// A single provider key already spreads the evaluators across that provider's
+// models (one lineage, several models); adding a second provider crosses
+// genuinely different model lineages, which is stronger. Nothing here reads as
+// failure; the lower rungs are honest descriptions with an upgrade path.
+export function readIndependence(
+  pairs: { provider: ProviderId; model?: string }[]
+): IndependenceReading {
+  const providers = Array.from(new Set(pairs.map((p) => p.provider)));
+  const models = Array.from(new Set(pairs.map((p) => p.model ?? p.provider)));
+  const nP = providers.length;
+  const nM = models.length;
 
-  const fraction = Math.min(1, n / 3);
-
-  const sharedEvidence =
-    "All evaluators read the same pasted evidence, a shared blind spot: if that evidence is wrong or incomplete, every evaluator inherits the gap and their agreement cannot catch it.";
-
-  let note: string;
-  if (grade === "Weak") {
-    note =
-      `Only one model lineage scored, so the evaluators differ by prompt but not by construction. Their agreement is close to one model restated five times and is not a verified floor. ` +
-      sharedEvidence;
-  } else if (grade === "Moderate") {
-    note =
-      `Two distinct model lineages scored, so there is real construction diversity but a narrow base. Treat convergence as suggestive, not settled. ` +
-      sharedEvidence;
+  let gradeKey: GradeKey;
+  let gradeLabel: string;
+  let fraction: number;
+  if (nP >= 3) {
+    gradeKey = "broad";
+    gradeLabel = "Broad cross-lineage";
+    fraction = 1;
+  } else if (nP === 2) {
+    gradeKey = "cross";
+    gradeLabel = "Cross-lineage";
+    fraction = 0.75;
   } else {
-    note =
-      `Three or more distinct model lineages scored, so convergence here reflects agreement across genuinely different constructions, the strongest signal this browser version can produce. It is still not absolute: ` +
-      sharedEvidence;
+    gradeKey = "single";
+    gradeLabel = "Single lineage";
+    fraction = 0.45;
   }
 
-  return { grade, distinctProviders: n, providers: distinct, fraction, note };
+  let note: string;
+  if (gradeKey === "single") {
+    note =
+      `The evaluators ran on one provider's models (${nM} distinct ${nM === 1 ? "model" : "models"}, one training lineage). ` +
+      `Their convergence is a real signal, but a same-lineage one: models from one provider can share a blind spot no spread of sizes will surface. Add a key from another provider to grind across genuinely different lineages and strengthen it. ` +
+      SHARED_EVIDENCE;
+  } else if (gradeKey === "cross") {
+    note =
+      `The evaluators spanned ${nP} providers (${nM} models), so there is real cross-lineage diversity. Treat convergence as solid but not the ceiling; a third lineage widens it further. ` +
+      SHARED_EVIDENCE;
+  } else {
+    note =
+      `The evaluators spanned ${nP} providers and ${nM} models, genuinely different lineages, the strongest independence this browser version produces. It is still not absolute: ` +
+      SHARED_EVIDENCE;
+  }
+
+  return { gradeKey, gradeLabel, distinctProviders: nP, distinctModels: nM, providers, fraction, note };
 }

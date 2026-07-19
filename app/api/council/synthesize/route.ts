@@ -9,6 +9,7 @@ interface EvalResult {
   lens: string;
   label: string;
   provider: ProviderId;
+  model?: string;
   score: number | null;
   text: string;
 }
@@ -28,7 +29,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "No evaluations to synthesize." }, { status: 400 });
   }
 
-  const independence = readIndependence(evaluations.map((e) => e.provider));
+  const independence = readIndependence(
+    evaluations.map((e) => ({ provider: e.provider, model: e.model }))
+  );
 
   const scored = evaluations.filter((e) => typeof e.score === "number");
   const composite =
@@ -53,13 +56,13 @@ export async function POST(req: Request) {
 
 The council logic is from the Octant Council Builder (Golem Foundation). This browser version carries one addition: an independence guard. Before trusting any agreement, you must weigh it by how independent the roster actually was.
 
-ROSTER INDEPENDENCE: ${independence.grade} (${independence.distinctProviders} distinct model ${independence.distinctProviders === 1 ? "lineage" : "lineages"}).
+ROSTER INDEPENDENCE: ${independence.gradeLabel} (${independence.distinctProviders} provider ${independence.distinctProviders === 1 ? "lineage" : "lineages"}, ${independence.distinctModels} distinct ${independence.distinctModels === 1 ? "model" : "models"}).
 ${independence.note}
 
 Write the report in this structure, plainly, with no em dashes:
 1. RECOMMENDATION: one of FUND / FUND WITH CONDITIONS / DON'T FUND / INSUFFICIENT DATA, then the composite score.
 2. Executive summary (3-4 sentences).
-3. Where the evaluators agreed, and how much that agreement is worth GIVEN the independence grade above. If independence is Weak, say plainly that the convergence is not a verified floor and lean on the evidence and the disagreements instead of the count of agreeing votes.
+3. Where the evaluators agreed, and how much that agreement is worth given the roster independence above. Weigh convergence by the independence: with a single lineage, treat agreement as suggestive and lean also on the evidence and the disagreements rather than on the count of agreeing votes; with cross-lineage agreement, it carries more. Do not overstate a single-lineage convergence as a settled floor, and do not dismiss it either.
 4. Where they disagreed (this is the most informative part).
 5. The single most important risk.
 Keep it under 400 words.`;

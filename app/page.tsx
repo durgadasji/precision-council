@@ -3,18 +3,22 @@
 import { useState, useEffect } from "react";
 import {
   PROVIDERS,
+  PROVIDER_MODELS,
   detectProvider,
   providerShort,
+  modelShort,
   type ProviderId,
 } from "@/lib/providers";
 import { LENSES, type LensId } from "@/lib/lenses";
 
-type Grade = "Weak" | "Moderate" | "Strong";
+type GradeKey = "single" | "cross" | "broad";
 type Phase = "setup" | "running" | "synth" | "done";
 
 interface Independence {
-  grade: Grade;
+  gradeKey: GradeKey;
+  gradeLabel: string;
   distinctProviders: number;
+  distinctModels: number;
   providers: ProviderId[];
   fraction: number;
   note: string;
@@ -24,6 +28,7 @@ interface Lane {
   lens: LensId;
   label: string;
   provider: ProviderId;
+  model: string;
   text: string;
   score: number | null;
   status: "running" | "done" | "error";
@@ -38,14 +43,35 @@ function parseScore(text: string): number | null {
   return isNaN(v) ? null : Math.max(0, Math.min(10, v));
 }
 
-function gradeFor(distinct: number): Grade {
-  return distinct >= 3 ? "Strong" : distinct === 2 ? "Moderate" : "Weak";
+// Spread the lenses across available providers first (lineage diversity), then
+// across each provider's model list (model diversity within a lineage). One key
+// still yields several models; more keys cross genuinely different lineages.
+function assignPairs(
+  providers: ProviderId[]
+): { provider: ProviderId; model: string }[] {
+  if (providers.length === 0) return [];
+  return LENSES.map((_, i) => {
+    const provider = providers[i % providers.length];
+    const models = PROVIDER_MODELS[provider];
+    const model = models[Math.floor(i / providers.length) % models.length];
+    return { provider, model };
+  });
 }
-function gradeClass(g: Grade) {
-  return "grade-" + g.toLowerCase();
+
+function gradeFor(distinctProviders: number): GradeKey {
+  return distinctProviders >= 3 ? "broad" : distinctProviders === 2 ? "cross" : "single";
 }
-function fillClass(g: Grade) {
-  return "fill-" + g.toLowerCase();
+function gradeLabelFor(g: GradeKey): string {
+  return g === "broad" ? "Broad cross-lineage" : g === "cross" ? "Cross-lineage" : "Single lineage";
+}
+function gradeClass(g: GradeKey) {
+  return "grade-" + g;
+}
+function fillClass(g: GradeKey) {
+  return "fill-" + g;
+}
+function fractionFor(g: GradeKey): number {
+  return g === "broad" ? 1 : g === "cross" ? 0.75 : 0.45;
 }
 
 export default function CouncilPage() {
@@ -118,6 +144,7 @@ export default function CouncilPage() {
         body: JSON.stringify({
           lens: lane.lens,
           provider: lane.provider,
+          model: lane.model,
           apiKey: keys[lane.provider],
           candidate,
           evidence,
@@ -160,10 +187,12 @@ export default function CouncilPage() {
     setComposite(null);
     setIndependence(null);
 
+    const pairs = assignPairs(activeProviders);
     const initial: Lane[] = LENSES.map((l, i) => ({
       lens: l.id,
       label: l.label,
-      provider: activeProviders[i % activeProviders.length],
+      provider: pairs[i].provider,
+      model: pairs[i].model,
       text: "",
       score: null,
       status: "running" as const,
@@ -195,6 +224,7 @@ export default function CouncilPage() {
             lens: l.lens,
             label: l.label,
             provider: l.provider,
+            model: l.model,
             score: l.score,
             text: l.text,
           })),
@@ -215,15 +245,17 @@ export default function CouncilPage() {
     }
   }
 
-  // live gauge: before a run, reflects keys added; during/after, reflects the
-  // providers actually assigned to lanes.
-  const gaugeProviders =
+  // live dial: before a run it reflects the keys added (via the would-be
+  // assignment); during and after, the providers and models actually assigned.
+  const gaugePairs =
     phase === "setup"
-      ? activeProviders
-      : Array.from(new Set(lanes.map((l) => l.provider)));
-  const gaugeDistinct = new Set(gaugeProviders).size;
+      ? assignPairs(activeProviders)
+      : lanes.map((l) => ({ provider: l.provider, model: l.model }));
+  const gaugeProviders = Array.from(new Set(gaugePairs.map((p) => p.provider)));
+  const gaugeModels = Array.from(new Set(gaugePairs.map((p) => p.model)));
+  const gaugeDistinct = gaugeProviders.length;
   const gaugeGrade = gradeFor(gaugeDistinct);
-  const gaugeFraction = Math.min(1, gaugeDistinct / 3);
+  const gaugeFraction = activeProviders.length === 0 ? 0 : fractionFor(gaugeGrade);
 
   const running = phase === "running" || phase === "synth";
 
@@ -257,9 +289,9 @@ export default function CouncilPage() {
         <p className="mut small" style={{ maxWidth: 720, margin: "0 0 4px" }}>
           A browser evaluation council. Independent evaluator agents score a
           candidate without seeing each other, then a chair converges them. It
-          runs on your own provider keys, in this tab, and it grades how
-          independent that convergence actually is: agreement is only worth as
-          much as the independence behind it.
+          runs on your own provider keys, in this tab, and it shows how
+          independent that convergence actually is: agreement is worth as much as
+          the independence behind it, and independence is a dial you can turn up.
         </p>
         <p className="mut small" style={{ maxWidth: 720, margin: "0 0 28px" }}>
           Council logic from the{" "}
@@ -349,13 +381,13 @@ export default function CouncilPage() {
           provider to raise the independence of the result.
         </p>
 
-        {/* independence gauge */}
+        {/* independence dial */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: 14,
-            marginBottom: 26,
+            marginBottom: 8,
             maxWidth: 720,
           }}
         >
@@ -365,14 +397,36 @@ export default function CouncilPage() {
           <div className="gauge-track" style={{ flex: 1 }}>
             <div
               className={"gauge-fill " + fillClass(gaugeGrade)}
-              style={{ width: Math.max(6, gaugeFraction * 100) + "%" }}
+              style={{ width: gaugeFraction * 100 + "%" }}
             />
           </div>
-          <span className={"small " + gradeClass(gaugeGrade)} style={{ minWidth: 150 }}>
-            {gaugeGrade} · {gaugeDistinct}{" "}
-            {gaugeDistinct === 1 ? "lineage" : "lineages"}
+          <span
+            className={"small " + (activeProviders.length ? gradeClass(gaugeGrade) : "mut")}
+            style={{ minWidth: 210, textAlign: "right" }}
+          >
+            {activeProviders.length === 0 ? (
+              "add a key to begin"
+            ) : (
+              <>
+                {gradeLabelFor(gaugeGrade)} · {gaugeDistinct}{" "}
+                {gaugeDistinct === 1 ? "provider" : "providers"}, {gaugeModels.length}{" "}
+                {gaugeModels.length === 1 ? "model" : "models"}
+              </>
+            )}
           </span>
         </div>
+        {activeProviders.length > 0 && gaugeGrade !== "broad" && (
+          <p className="mut" style={{ fontSize: 11, marginBottom: 26, maxWidth: 720 }}>
+            {gaugeGrade === "single"
+              ? `One provider lineage, spread across ${gaugeModels.length} of its models. Independence is a dial: add a key from another provider and the evaluators grind across genuinely different model lineages.`
+              : "Two lineages grinding against each other. Add a third provider to widen it further."}
+          </p>
+        )}
+        {activeProviders.length > 0 && gaugeGrade === "broad" && (
+          <p className="mut" style={{ fontSize: 11, marginBottom: 26, maxWidth: 720 }}>
+            Three or more lineages. The evaluators grind across genuinely different constructions, the strongest independence this browser version produces.
+          </p>
+        )}
 
         {/* inputs */}
         <div className="label" style={{ marginBottom: 8 }}>
@@ -432,7 +486,9 @@ export default function CouncilPage() {
                 >
                   <div className="lane-head">
                     <span className="lane-lens">{l.label}</span>
-                    <span className="lane-provider">{providerShort(l.provider)}</span>
+                    <span className="lane-provider">
+                      {providerShort(l.provider)} · {modelShort(l.model)}
+                    </span>
                   </div>
                   <div className="lane-body">
                     {l.text || (
@@ -520,24 +576,25 @@ function Floor({
   const max = Math.max(...scores);
   const pct = (s: number) => ((s - 1) / 9) * 100;
   const bandColor =
-    independence.grade === "Strong"
+    independence.gradeKey === "broad"
       ? "var(--rich-c)"
-      : independence.grade === "Moderate"
-      ? "var(--cool)"
-      : "var(--warm)";
+      : independence.gradeKey === "cross"
+      ? "var(--brass)"
+      : "var(--cool)";
 
   return (
     <div className="floor">
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, gap: 12, flexWrap: "wrap" }}>
         <span className="small mut">
           Composite{" "}
           <strong style={{ color: "var(--ink)" }}>
             {composite == null ? "n/a" : composite + "/10"}
           </strong>
         </span>
-        <span className={"small " + gradeClass(independence.grade)}>
-          independence: {independence.grade} · {independence.distinctProviders}{" "}
-          {independence.distinctProviders === 1 ? "lineage" : "lineages"} · shared evidence
+        <span className={"small " + gradeClass(independence.gradeKey)}>
+          independence: {independence.gradeLabel} · {independence.distinctProviders}{" "}
+          {independence.distinctProviders === 1 ? "provider" : "providers"},{" "}
+          {independence.distinctModels} {independence.distinctModels === 1 ? "model" : "models"} · shared evidence
         </span>
       </div>
 
