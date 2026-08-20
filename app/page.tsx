@@ -344,6 +344,7 @@ export default function CouncilPage() {
             type="password"
             value={keyInput}
             onChange={(e) => onKeyInputChange(e.target.value)}
+            aria-label="Provider API key"
             placeholder={
               PROVIDERS.find((p) => p.id === selProvider)?.placeholder ??
               "paste a key"
@@ -435,6 +436,7 @@ export default function CouncilPage() {
         <textarea
           value={candidate}
           onChange={(e) => setCandidate(e.target.value)}
+          aria-label="Candidate to evaluate"
           placeholder="Name and describe the project or candidate to evaluate."
           rows={3}
           style={{ marginBottom: 16 }}
@@ -446,6 +448,7 @@ export default function CouncilPage() {
         <textarea
           value={evidence}
           onChange={(e) => setEvidence(e.target.value)}
+          aria-label="Evidence for the council to judge from"
           placeholder="Paste the evidence the council should judge from: repo stats, funding history, docs, on-chain data, links summarized. All evaluators read this same text."
           rows={6}
           style={{ marginBottom: 18 }}
@@ -465,7 +468,7 @@ export default function CouncilPage() {
               : "Convene the council"}
           </button>
           {error && (
-            <span className="small" style={{ color: "var(--red)" }}>
+            <span className="small" role="alert" style={{ color: "var(--red)" }}>
               {error}
             </span>
           )}
