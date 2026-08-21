@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -25,9 +26,10 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: "Precision Council for AI", description: DESC },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html
       lang="en"
@@ -36,6 +38,7 @@ export default function RootLayout({
       <body>
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
